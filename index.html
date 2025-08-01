@@ -1,1 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Narrative Visualization Example</title>
+  <!-- D3 library -->
+  <script src="https://d3js.org/d3.v6.min.js"></script>
+  <!-- d3-annotation for in-scene annotations -->
+  <script src="https://cdn.jsdelivr.net/npm/d3-annotation@2"></script>
+  <style>
+    body { font-family: sans-serif; }
+    #controls { margin: 10px; }
+    button { padding: 5px 10px; margin-right: 5px; }
+    .annotation-note-title { font-weight: bold; }
+    .annotation-note-label { font-size: 12px; }
+    .tooltip {
+      position: absolute;
+      background: rgba(255,255,255,0.8);
+      padding: 5px;
+      border: 1px solid #ccc;
+      pointer-events: none;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <button id="prevBtn">Previous</button>
+    <button id="nextBtn">Next</button>
+  </div>
+  <div id="viz"></div>
+  <div id="tooltip" class="tooltip" style="opacity:0;"></div>
+  <script>
+    // Dimensions
+    const width = 800, height = 500, margin = {top: 40, right:40, bottom: 50, left: 60};
 
+    // Append SVG
+    const svg = d3.select('#viz')
+      .append('svg')
+      .attr('width', width)
+      .attr('height', height);
+
+    // Sample dataset: auto MPG vs weight
+    const data = [
+      {mpg:18, weight:3504, cyl:8},
+      {mpg:15, weight:3693, cyl:8},
+      {mpg:24, weight:2408, cyl:4},
+      {mpg:30, weight:2372, cyl:4},
+      {mpg:22, weight:3139, cyl:6},
+      {mpg:13, weight:4082, cyl:8},
+      {mpg:28, weight:2264, cyl:4},
+      {mpg:19, weight:3439, cyl:6},
+      {mpg:31, weight:1985, cyl:4},
+      {mpg:16, weight:3900, cyl:8}
+    ];
+
+    // Scales
+    const xScale = d3.scaleLinear()
+      .domain(d3.extent(data, d => d.weight))
+      .range([margin.left, width - margin.right]);
+
+    const yScale = d3.scaleLinear()
+      .domain(d3.extent(data, d => d.mpg))
+      .range([height - margin.bottom, margin.top]);
+
+    // Tooltip
+    const tooltip = d3.select('#tooltip');
+
+    // Narrative parameters
+    let currentScene = 0;
+    const scenes = [sceneOverview, sceneHighlightTrend, sceneExplore];
+
+    // Render the current scene
+    function renderScene() {
+      svg.selectAll('*').remove();
+      scenes[currentScene]();
+    }
+
+    // Scene 0: Overview scatterplot
+    function sceneOverview() {
+      // Axes
+      svg.append('g')
+        .attr('transform', `translate(0,${height - margin.bottom})`)
+        .call(d3.axisBottom(xScale))
+        .append('text')
+        .attr('x', width/2).attr('y', 35)
+        .attr('fill', '#000').text('Weight (lbs)');
+
+      svg.append('g')
+        .attr('transform', `translate(${margin.left},0)`)
+        .call(d3.axisLeft(yScale))
+        .append('text')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -height/2).attr('y', -40)
+        .attr('fill', '#000').text('MPG');
+
+      // Points
+      svg.selectAll('circle')
+        .data(data)
+        .enter().append('circle')
+        .attr('cx', d => xScale(d.weight))
+        .attr('cy', d => yScale(d.mpg))
+        .attr('r', 5)
+        .attr('fill', 'steelblue');
+
+      // Annotation template
+      const annotations = [
+        {
+          note: { title: 'Overview', label: 'Cars with higher weight tend to have lower MPG.' },
+          x: xScale(3500), y: yScale(20), dx: -80, dy: -80
+        }
+      ];
+
+      const makeAnnotation = d3.annotation()
+        .annotations(annotations)
+        .type(d3.annotationLabel)
+        .accessors({ x: d => d.x, y: d => d.y })
+        .accessorsInverse({ x: d => d.weight, y: d => d.mpg });
+
+      svg.append('g')
+        .attr('class', 'annotation-group')
+        .call(makeAnnotation);
+    }
+
+    // Scene 1: Highlight the negative trend line
+    function sceneHighlightTrend() {
+      // Draw axes again
+      svg.append('g')
+        .attr('transform', `translate(0,${height - margin.bottom})`)
+        .call(d3.axisBottom(xScale));
+      svg.append('g')
+        .attr('transform', `translate(${margin.left},0)`)
+        .call(d3.axisLeft(yScale));
+
+      // Trend line
+      const line = d3.line()
+        .x(d => xScale(d.weight))
+        .y(d => yScale(d.mpg));
+
+      const sorted = data.slice().sort((a,b) => a.weight - b.weight);
+
+      svg.append('path')
+        .datum(sorted)
+        .attr('fill', 'none')
+        .attr('stroke', 'red')
+        .attr('stroke-width', 2)
+        .attr('d', line);
+
+      // Points faded
+      svg.selectAll('circle')
+        .data(data)
+        .enter().append('circle')
+        .attr('cx', d => xScale(d.weight))
+        .attr('cy', d => yScale(d.mpg))
+        .attr('r', 5)
+        .attr('fill', '#ccc');
+
+      // Annotation
+      const annotations = [
+        {
+          note: { title: 'Trend', label: 'Negative correlation between weight and MPG.' },
+          x: xScale(2500), y: yScale(25), dx: 50, dy: -50
+        }
+      ];
+
+      const makeAnnotation = d3.annotation()
+        .annotations(annotations)
+        .type(d3.annotationLabel)
+        .accessors({ x: d => d.x, y: d => d.y });
+
+      svg.append('g')
+        .attr('class', 'annotation-group')
+        .call(makeAnnotation);
+    }
+
+    // Scene 2: Free exploration with tooltips
+    function sceneExplore() {
+      // Draw axes
+      svg.append('g')
+        .attr('transform', `translate(0,${height - margin.bottom})`)
+        .call(d3.axisBottom(xScale));
+      svg.append('g')
+        .attr('transform', `translate(${margin.left},0)`)
+        .call(d3.axisLeft(yScale));
+
+      // Interactive points
+      svg.selectAll('circle')
+        .data(data)
+        .enter().append('circle')
+        .attr('cx', d => xScale(d.weight))
+        .attr('cy', d => yScale(d.mpg))
+        .attr('r', 7)
+        .attr('fill', 'steelblue')
+        .on('mouseover', (event, d) => {
+          tooltip.transition().duration(200).style('opacity', .9);
+          tooltip.html(`MPG: ${d.mpg}<br/>Weight: ${d.weight}`)
+            .style('left', `${event.pageX + 5}px`)
+            .style('top', `${event.pageY - 28}px`);
+        })
+        .on('mouseout', () => {
+          tooltip.transition().duration(500).style('opacity', 0);
+        });
+    }
+
+    // Triggers
+    d3.select('#nextBtn').on('click', () => {
+      if (currentScene < scenes.length - 1) currentScene++;
+      renderScene();
+    });
+    d3.select('#prevBtn').on('click', () => {
+      if (currentScene > 0) currentScene--;
+      renderScene();
+    });
+
+    // Initial render
+    renderScene();
+  </script>
+</body>
+</html>
