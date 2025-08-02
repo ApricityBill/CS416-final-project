@@ -3,191 +3,240 @@
 <head>
   <meta charset="UTF-8">
   <title>Narrative Visualization Example (2017 Cars Data)</title>
-  <!-- D3 library -->
+  <!-- Load D3.js for data manipulation and visualization -->
   <script src="https://d3js.org/d3.v6.min.js"></script>
-  <!-- d3-annotation for in-scene annotations -->
+  <!-- Load d3-annotation for in-scene annotations -->
   <script src="https://cdn.jsdelivr.net/npm/d3-annotation@2"></script>
   <style>
-    body { font-family: sans-serif; }
-    #controls { margin: 10px; }
-    button { padding: 5px 10px; margin-right: 5px; }
+    body { font-family: sans-serif; margin: 0; }
+    #controls { margin: 10px; text-align: center; }
+    button { padding: 5px 10px; margin: 0 5px; }
     .annotation-note-title { font-weight: bold; }
     .annotation-note-label { font-size: 12px; }
     .tooltip {
       position: absolute;
-      background: rgba(255,255,255,0.8);
+      background: rgba(255,255,255,0.9);
       padding: 5px;
       border: 1px solid #ccc;
+      border-radius: 4px;
       pointer-events: none;
       font-size: 12px;
     }
+    svg { background: #fafafa; }
   </style>
 </head>
 <body>
+  <!-- Navigation controls for the interactive slideshow -->
   <div id="controls">
-    <button id="prevBtn">Previous</button>
-    <button id="nextBtn">Next</button>
+    <button id="prevBtn">← Previous</button>
+    <button id="nextBtn">Next →</button>
   </div>
+  <!-- Container for the SVG visualization -->
   <div id="viz"></div>
+  <!-- Tooltip div, initially hidden -->
   <div id="tooltip" class="tooltip" style="opacity:0;"></div>
-  <script>
-    const width = 800, height = 500;
-    const margin = {top: 40, right:40, bottom: 50, left: 60};
 
+  <script>
+    // Set dimensions and margins for the SVG canvas
+    const width = 800, height = 500;
+    const margin = { top: 40, right: 40, bottom: 50, left: 60 };
+
+    // Append an SVG element to the #viz container
     const svg = d3.select('#viz')
       .append('svg')
       .attr('width', width)
       .attr('height', height);
 
+    // Tooltip selection for later use
     const tooltip = d3.select('#tooltip');
+
+    // Track which scene is currently active (0-based index)
     let currentScene = 0;
     let scenes = [];
 
-    // Load CSV data
-    d3.csv('cars2017.csv', d3.autoType).then(data => {
-      // Scales based on loaded data
-      const xScale = d3.scaleLinear()
-        .domain(d3.extent(data, d => d.weight))
-        .range([margin.left, width - margin.right]);
+    // Load the 2017 cars dataset (CSV) from the provided URL
+    // Load the local CSV file; place cars2017.csv in your repo root
+        d3.csv('cars2017.csv', d3.autoType)
+      .then(data => {
+        // Log data summary to console for debugging
+        console.log(`Loaded ${data.length} car records.`);
+        console.log(data.slice(0, 5)); // show first 5 rows
 
-      const yScale = d3.scaleLinear()
-        .domain(d3.extent(data, d => d.mpg))
-        .range([height - margin.bottom, margin.top]);
+        // Set up scales: map weight to x-axis, MPG to y-axis
+        const xScale = d3.scaleLinear()
+          .domain(d3.extent(data, d => d.weight)).nice()
+          .range([margin.left, width - margin.right]);
 
-      // Define Scenes now that data and scales exist
-      scenes = [sceneOverview, sceneTrendline, sceneExplore];
+        const yScale = d3.scaleLinear()
+          .domain(d3.extent(data, d => d.mpg)).nice()
+          .range([height - margin.bottom, margin.top]);
 
-      function renderScene() {
-        svg.selectAll('*').remove();
-        scenes[currentScene]();
-      }
+        // Define the scene functions after data & scales are ready
+        scenes = [sceneOverview, sceneTrendline, sceneExplore];
 
-      // Scene 0: Overview
-      function sceneOverview() {
-        // Axes
-        svg.append('g')
-          .attr('transform', `translate(0,${height - margin.bottom})`)
-          .call(d3.axisBottom(xScale))
-          .append('text')
-          .attr('x', width / 2).attr('y', 35)
-          .attr('fill', '#000').text('Weight (lbs)');
+        // Function to clear and render the current scene
+        function renderScene() {
+          svg.selectAll('*').remove();  // Clear previous drawing
+          scenes[currentScene]();       // Draw new scene
+        }
 
-        svg.append('g')
-          .attr('transform', `translate(${margin.left},0)`)
-          .call(d3.axisLeft(yScale))
-          .append('text')
-          .attr('transform', 'rotate(-90)')
-          .attr('x', -height / 2).attr('y', -40)
-          .attr('fill', '#000').text('MPG');
+        /**
+         * SCENE 0: Overview
+         * Show basic scatterplot of car weight vs. MPG
+         */
+        function sceneOverview() {
+          // Draw axes with labels
+          svg.append('g')
+            .attr('transform', `translate(0,${height - margin.bottom})`)
+            .call(d3.axisBottom(xScale))
+            .append('text')
+              .attr('x', width/2)
+              .attr('y', 35)
+              .attr('fill', '#000')
+              .text('Weight (lbs)');
 
-        svg.selectAll('circle')
-          .data(data)
-          .enter().append('circle')
-          .attr('cx', d => xScale(d.weight))
-          .attr('cy', d => yScale(d.mpg))
-          .attr('r', 5)
-          .attr('fill', 'steelblue');
+          svg.append('g')
+            .attr('transform', `translate(${margin.left},0)`)
+            .call(d3.axisLeft(yScale))
+            .append('text')
+              .attr('transform', 'rotate(-90)')
+              .attr('x', -height/2)
+              .attr('y', -40)
+              .attr('fill', '#000')
+              .text('MPG');
 
-        const annotations = [{
-          note: { title: 'Overview', label: 'General spread of weight vs. MPG for 2017 cars.' },
-          x: xScale(4000), y: yScale(25), dx: -80, dy: -60
-        }];
+          // Plot each car as a point
+          svg.selectAll('circle')
+            .data(data)
+            .enter().append('circle')
+              .attr('cx', d => xScale(d.weight))
+              .attr('cy', d => yScale(d.mpg))
+              .attr('r', 5)
+              .attr('fill', 'steelblue')
+              .attr('opacity', 0.7);
 
-        const makeAnnotation = d3.annotation()
-          .annotations(annotations)
-          .type(d3.annotationLabel)
-          .accessors({ x: d => d.x, y: d => d.y });
+          // Annotation: draw a label pointing out general spread
+          const annotations = [{
+            note: { title: 'Dataset Overview', label: '2017 cars: weight vs. MPG distribution.' },
+            x: xScale(4500),
+            y: yScale(20),
+            dx: -80,
+            dy: -60
+          }];
 
-        svg.append('g')
-          .attr('class', 'annotation-group')
-          .call(makeAnnotation);
-      }
+          const makeAnnotation = d3.annotation()
+            .annotations(annotations)
+            .type(d3.annotationLabel)
+            .accessors({ x: d => d.x, y: d => d.y });
 
-      // Scene 1: Trendline
-      function sceneTrendline() {
-        svg.append('g')
-          .attr('transform', `translate(0,${height - margin.bottom})`)
-          .call(d3.axisBottom(xScale));
-        svg.append('g')
-          .attr('transform', `translate(${margin.left},0)`)
-          .call(d3.axisLeft(yScale));
+          svg.append('g')
+            .attr('class', 'annotation-group')
+            .call(makeAnnotation);
+        }
 
-        // Draw regression trendline
-        const line = d3.line()
-          .x(d => xScale(d.weight))
-          .y(d => yScale(d.mpg));
-        const sorted = data.slice().sort((a,b) => a.weight - b.weight);
-        svg.append('path')
-          .datum(sorted)
-          .attr('fill', 'none')
-          .attr('stroke', 'red')
-          .attr('stroke-width', 2)
-          .attr('d', line);
+        /**
+         * SCENE 1: Trendline
+         * Overlay a regression-like line to highlight the negative correlation
+         */
+        function sceneTrendline() {
+          // Redraw axes without labels for context
+          svg.append('g')
+            .attr('transform', `translate(0,${height - margin.bottom})`)
+            .call(d3.axisBottom(xScale));
+          svg.append('g')
+            .attr('transform', `translate(${margin.left},0)`)
+            .call(d3.axisLeft(yScale));
 
-        // Faded points
-        svg.selectAll('circle')
-          .data(data)
-          .enter().append('circle')
-          .attr('cx', d => xScale(d.weight))
-          .attr('cy', d => yScale(d.mpg))
-          .attr('r', 5)
-          .attr('fill', '#ccc');
+          // Compute a simple smoothed line by sorting points by weight
+          const sorted = data.slice().sort((a, b) => d3.ascending(a.weight, b.weight));
+          const line = d3.line()
+            .x(d => xScale(d.weight))
+            .y(d => yScale(d.mpg));
 
-        const annotations = [{
-          note: { title: 'Negative Correlation', label: 'Heavier cars tend to have lower MPG.' },
-          x: xScale(3000), y: yScale(30), dx: 40, dy: -60
-        }];
+          // Draw the trend line in red
+          svg.append('path')
+            .datum(sorted)
+            .attr('fill', 'none')
+            .attr('stroke', 'red')
+            .attr('stroke-width', 2)
+            .attr('d', line);
 
-        const makeAnnotation = d3.annotation()
-          .annotations(annotations)
-          .type(d3.annotationLabel)
-          .accessors({ x: d => d.x, y: d => d.y });
+          // Fade original points to emphasize the line
+          svg.selectAll('circle')
+            .data(data)
+            .enter().append('circle')
+              .attr('cx', d => xScale(d.weight))
+              .attr('cy', d => yScale(d.mpg))
+              .attr('r', 5)
+              .attr('fill', '#ccc');
 
-        svg.append('g')
-          .attr('class', 'annotation-group')
-          .call(makeAnnotation);
-      }
+          // Annotation: point out the negative correlation
+          const annotations = [{
+            note: { title: 'Negative Correlation', label: 'As weight increases, MPG decreases.' },
+            x: xScale(3000),
+            y: yScale(30),
+            dx: 40,
+            dy: -60
+          }];
 
-      // Scene 2: Explore with tooltips
-      function sceneExplore() {
-        svg.append('g')
-          .attr('transform', `translate(0,${height - margin.bottom})`)
-          .call(d3.axisBottom(xScale));
-        svg.append('g')
-          .attr('transform', `translate(${margin.left},0)`)
-          .call(d3.axisLeft(yScale));
+          const makeAnnotation = d3.annotation()
+            .annotations(annotations)
+            .type(d3.annotationLabel)
+            .accessors({ x: d => d.x, y: d => d.y });
 
-        svg.selectAll('circle')
-          .data(data)
-          .enter().append('circle')
-          .attr('cx', d => xScale(d.weight))
-          .attr('cy', d => yScale(d.mpg))
-          .attr('r', 6)
-          .attr('fill', 'steelblue')
-          .on('mouseover', (event, d) => {
-            tooltip.transition().duration(200).style('opacity', .9);
-            tooltip.html(`Model: ${d.model}<br>MPG: ${d.mpg}<br>Weight: ${d.weight}`)
-              .style('left', `${event.pageX + 5}px`)
-              .style('top', `${event.pageY - 28}px`);
-          })
-          .on('mouseout', () => {
-            tooltip.transition().duration(500).style('opacity', 0);
-          });
-      }
+          svg.append('g')
+            .attr('class', 'annotation-group')
+            .call(makeAnnotation);
+        }
 
-      // Controls
-      d3.select('#nextBtn').on('click', () => {
-        if (currentScene < scenes.length - 1) currentScene++;
+        /**
+         * SCENE 2: Exploration
+         * Allow user to hover for detailed tooltips by model
+         */
+        function sceneExplore() {
+          // Redraw axes
+          svg.append('g')
+            .attr('transform', `translate(0,${height - margin.bottom})`)
+            .call(d3.axisBottom(xScale));
+          svg.append('g')
+            .attr('transform', `translate(${margin.left},0)`)
+            .call(d3.axisLeft(yScale));
+
+          // Draw interactive points with tooltip
+          svg.selectAll('circle')
+            .data(data)
+            .enter().append('circle')
+              .attr('cx', d => xScale(d.weight))
+              .attr('cy', d => yScale(d.mpg))
+              .attr('r', 6)
+              .attr('fill', 'steelblue')
+              .attr('opacity', 0.8)
+              .on('mouseover', (event, d) => {
+                // Show model, mpg, weight in tooltip
+                tooltip.transition().duration(200).style('opacity', 1);
+                tooltip.html(`Model: ${d.model}<br>MPG: ${d.mpg}<br>Weight: ${d.weight}`)
+                  .style('left', `${event.pageX + 8}px`)
+                  .style('top', `${event.pageY - 28}px`);
+              })
+              .on('mouseout', () => {
+                tooltip.transition().duration(500).style('opacity', 0);
+              });
+        }
+
+        // Wire up control buttons to change scenes
+        d3.select('#nextBtn').on('click', () => {
+          if (currentScene < scenes.length - 1) currentScene++;
+          renderScene();
+        });
+        d3.select('#prevBtn').on('click', () => {
+          if (currentScene > 0) currentScene--;
+          renderScene();
+        });
+
+        // Initial rendering of the first scene
         renderScene();
-      });
-      d3.select('#prevBtn').on('click', () => {
-        if (currentScene > 0) currentScene--;
-        renderScene();
-      });
-
-      // Initial draw
-      renderScene();
-    });
+      })
+      .catch(error => console.error('Error loading data:', error));
   </script>
 </body>
 </html>
