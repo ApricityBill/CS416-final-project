@@ -44,7 +44,7 @@
     let scenes = [];
 
     // Load CSV data
-    d3.csv('https://flunky.github.io/cars2017.csv', d3.autoType).then(data => {
+    d3.csv('cars2017.csv', d3.autoType).then(data => {
       // Scales based on loaded data
       const xScale = d3.scaleLinear()
         .domain(d3.extent(data, d => d.weight))
