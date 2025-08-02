@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Narrative Visualization Example (2017 Cars Data)</title>
+  <title>Narrative Visualization Example (2017 Cars Data - Cleaned)</title>
   <!-- Load D3.js for data manipulation and visualization -->
   <script src="https://d3js.org/d3.v6.min.js"></script>
   <!-- Load d3-annotation for in-scene annotations -->
@@ -54,12 +54,12 @@
     let currentScene = 0;
     let scenes = [];
 
-    // Load data from local CSV (must be adjacent to this HTML)
-    d3.csv('cars2017.csv', d3.autoType)
+    // Load data from cleaned local CSV (must be adjacent to this HTML)
+    d3.csv('cars2017_clean.csv', d3.autoType)
       .then(data => {
-        console.log(`Loaded ${data.length} records`);
+        console.log(`Loaded ${data.length} records from cleaned CSV`);
 
-        // Define x and y fields
+        // Define x and y fields for MPG comparison
         const xField = 'AverageCityMPG';
         const yField = 'AverageHighwayMPG';
 
@@ -72,7 +72,7 @@
           .domain(d3.extent(data, d => d[yField])).nice()
           .range([height - margin.bottom, margin.top]);
 
-        // Define scenes
+        // Scene definitions
         scenes = [sceneOverview, sceneTrendline, sceneExplore];
 
         // Render the current scene
@@ -81,14 +81,14 @@
           scenes[currentScene]();
         }
 
-        /** Scene 0: Overview of City vs Highway MPG */
+        /** Scene 0: Overview of City vs. Highway MPG */
         function sceneOverview() {
-          // Axes with labels
+          // Draw axes with labels
           svg.append('g')
             .attr('transform', `translate(0,${height - margin.bottom})`)
             .call(d3.axisBottom(xScale))
             .append('text')
-              .attr('x', width/2)
+              .attr('x', width / 2)
               .attr('y', 35)
               .attr('fill', '#000')
               .text('Average City MPG');
@@ -98,7 +98,7 @@
             .call(d3.axisLeft(yScale))
             .append('text')
               .attr('transform', 'rotate(-90)')
-              .attr('x', -height/2)
+              .attr('x', -height / 2)
               .attr('y', -40)
               .attr('fill', '#000')
               .text('Average Highway MPG');
@@ -113,12 +113,13 @@
               .attr('fill', 'steelblue')
               .attr('opacity', 0.7);
 
-          // Annotation: general data spread
+          // Annotation: highlight data center
           const annotations = [{
-            note: { title: 'Overview', label: 'City vs Highway MPG distribution (2017).' },
+            note: { title: 'Data Overview', label: 'Scatter of city vs. highway MPG for 2017 models.' },
             x: xScale(d3.mean(data, d => d[xField])),
             y: yScale(d3.mean(data, d => d[yField])),
-            dx: 50, dy: -50
+            dx: 40,
+            dy: -40
           }];
 
           const makeAnnotation = d3.annotation()
@@ -131,9 +132,9 @@
             .call(makeAnnotation);
         }
 
-        /** Scene 1: Highlight positive correlation */
+        /** Scene 1: Highlight correlation with trend line */
         function sceneTrendline() {
-          // Redraw axes
+          // Draw axes
           svg.append('g')
             .attr('transform', `translate(0,${height - margin.bottom})`)
             .call(d3.axisBottom(xScale));
@@ -141,7 +142,7 @@
             .attr('transform', `translate(${margin.left},0)`)
             .call(d3.axisLeft(yScale));
 
-          // Sort and draw line
+          // Compute and draw trend line
           const sortedData = data.slice().sort((a, b) => a[xField] - b[xField]);
           const line = d3.line()
             .x(d => xScale(d[xField]))
@@ -154,7 +155,7 @@
             .attr('stroke-width', 2)
             .attr('d', line);
 
-          // Fade points
+          // Fade original points
           svg.selectAll('circle')
             .data(data)
             .enter().append('circle')
@@ -163,12 +164,13 @@
               .attr('r', 5)
               .attr('fill', '#ccc');
 
-          // Annotation: trend message
+          // Annotation: correlation label
           const annotations = [{
-            note: { title: 'Positive Correlation', label: 'Cars efficient in the city are also efficient on highways.' },
-            x: xScale(d3.quantile(data.map(d => d[xField]).sort(d3.ascending), 0.7)),
-            y: yScale(d3.quantile(data.map(d => d[yField]).sort(d3.ascending), 0.7)),
-            dx: -60, dy: -60
+            note: { title: 'Positive Correlation', label: 'Models efficient in city drive also efficient on highway.' },
+            x: xScale(d3.quantile(data.map(d => d[xField]).sort(d3.ascending), 0.75)),
+            y: yScale(d3.quantile(data.map(d => d[yField]).sort(d3.ascending), 0.75)),
+            dx: -60,
+            dy: -60
           }];
 
           const makeAnnotation = d3.annotation()
@@ -181,9 +183,9 @@
             .call(makeAnnotation);
         }
 
-        /** Scene 2: Explore with detailed tooltips */
+        /** Scene 2: Explore with tooltips */
         function sceneExplore() {
-          // Redraw axes
+          // Draw axes
           svg.append('g')
             .attr('transform', `translate(0,${height - margin.bottom})`)
             .call(d3.axisBottom(xScale));
@@ -191,7 +193,7 @@
             .attr('transform', `translate(${margin.left},0)`)
             .call(d3.axisLeft(yScale));
 
-          // Draw interactive points
+          // Interactive points with tooltip
           svg.selectAll('circle')
             .data(data)
             .enter().append('circle')
@@ -203,8 +205,7 @@
               .on('mouseover', (event, d) => {
                 tooltip.transition().duration(200).style('opacity', 1);
                 tooltip.html(
-                  `<strong>${d.Make}</strong><br>` +
-                  `Fuel: ${d.Fuel}<br>` +
+                  `<strong>${d.Make} (${d.Fuel})</strong><br>` +
                   `Cylinders: ${d.EngineCylinders}<br>` +
                   `City MPG: ${d[xField]}<br>` +
                   `Highway MPG: ${d[yField]}`
@@ -217,7 +218,7 @@
               });
         }
 
-        // Navigation triggers
+        // Navigation buttons
         d3.select('#nextBtn').on('click', () => {
           if (currentScene < scenes.length - 1) currentScene++;
           renderScene();
@@ -227,10 +228,10 @@
           renderScene();
         });
 
-        // Initial render
+        // Initial scene
         renderScene();
       })
-      .catch(error => console.error('Error loading data:', error));
+      .catch(error => console.error('Error loading cleaned CSV:', error));
   </script>
 </body>
 </html>
