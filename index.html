@@ -16,6 +16,11 @@
       padding: 6px; border: 1px solid #aaa; border-radius: 4px;
       pointer-events: none; font-size: 12px;
     }
+    .scene-title {
+      font-size: 20px;
+      font-weight: bold;
+      text-anchor: middle;
+    }
     svg { background: #fafafa; }
   </style>
 </head>
@@ -31,19 +36,27 @@
     const width = 800, height = 500;
     const margin = {top:40, right:40, bottom:50, left:60};
 
+    // Titles for each scene
+    const sceneTitles = [
+      'Mapping Efficiency: City vs. Highway MPG',
+      'Under the Hood: MPG Colored by Cylinder Count',
+      'Ranking Engines: Average City MPG by Cylinder Category'
+    ];
+
     const svg = d3.select('#viz').append('svg')
-      .attr('width', width).attr('height', height);
+      .attr('width', width)
+      .attr('height', height);
     const tooltip = d3.select('#tooltip');
     let currentScene = 0, scenes = [];
 
     d3.csv('cars2017_clean.csv', d3.autoType).then(data => {
-      // Add a categorical color scale for cylinder counts
+      // Categorical color scale for EngineCylinders
       const cylinders = Array.from(new Set(data.map(d=>d.EngineCylinders))).sort(d3.ascending);
       const colorScale = d3.scaleOrdinal()
         .domain(cylinders)
         .range(d3.schemeCategory10);
 
-      // Scales for MPG scatter
+      // MPG scales for scatter plots
       const xScale = d3.scaleLinear()
         .domain(d3.extent(data, d=>d.AverageCityMPG)).nice()
         .range([margin.left, width-margin.right]);
@@ -51,7 +64,7 @@
         .domain(d3.extent(data, d=>d.AverageHighwayMPG)).nice()
         .range([height-margin.bottom, margin.top]);
 
-      // Scale for bar chart (average city MPG by cylinder)
+      // Compute avg city MPG by cylinder for bar chart
       const avgByCyl = d3.rollups(data,
         v=>d3.mean(v, d=>d.AverageCityMPG),
         d=>d.EngineCylinders
@@ -66,7 +79,18 @@
 
       scenes = [sceneScatter, sceneColored, sceneBar];
 
-      function render() { svg.selectAll('*').remove(); scenes[currentScene](); }
+      // Main render function
+      function render() {
+        svg.selectAll('*').remove();
+        // Draw scene
+        scenes[currentScene]();
+        // Draw scene title
+        svg.append('text')
+          .attr('class', 'scene-title')
+          .attr('x', width / 2)
+          .attr('y', margin.top / 2)
+          .text(sceneTitles[currentScene]);
+      }
 
       // Scene 0: Basic MPG scatter
       function sceneScatter() {
