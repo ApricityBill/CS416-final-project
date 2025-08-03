@@ -128,7 +128,7 @@
     let currentScene = 0;
     let scenes = [];
 
-    d3.csv('https://raw.githubusercontent.com/vega/vega-datasets/next/data/cars.json', d3.autoType).then(data => {
+     d3.csv('cars2017_clean.csv', d3.autoType).then(data => {
       // Filter and clean data for 2017 models
       const filteredData = data
         .filter(d => d.Year === 2017)
