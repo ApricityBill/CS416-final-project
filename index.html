@@ -6,96 +6,24 @@
   <script src="https://d3js.org/d3.v6.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/d3-annotation@2"></script>
   <style>
-    body { 
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-      margin: 0; 
-      background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
-    }
-    #controls { 
-      text-align: center; 
-      margin: 20px 0; 
-      padding: 10px;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      max-width: 800px;
-      margin: 20px auto;
-    }
-    button { 
-      padding: 8px 20px; 
-      margin: 0 10px; 
-      background: #4a6fa5;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: 600;
-      transition: all 0.3s ease;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    button:hover {
-      background: #3a5a80;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    }
+    body { font-family: sans-serif; margin: 0; }
+    #controls { text-align: center; margin: 10px; }
+    button { padding: 5px 10px; margin: 0 5px; }
     .tooltip {
       position: absolute;
-      background: rgba(255,255,255,0.95);
-      padding: 12px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
+      background: rgba(255,255,255,0.9);
+      padding: 6px;
+      border: 1px solid #aaa;
+      border-radius: 4px;
       pointer-events: none;
-      font-size: 13px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      min-width: 180px;
-      backdrop-filter: blur(4px);
-    }
-    .tooltip h3 {
-      margin: 0 0 8px 0;
-      padding-bottom: 6px;
-      border-bottom: 1px solid #eee;
-      color: #2c3e50;
-    }
-    .tooltip p {
-      margin: 5px 0;
-      color: #34495e;
-    }
-    .tooltip strong {
-      color: #2c3e50;
+      font-size: 12px;
     }
     .scene-title {
-      font-size: 20px;
-      font-weight: 700;
-      text-anchor: middle;
-      fill: #2c3e50;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.1);
-    }
-    .axis-label {
-      font-size: 14px;
-      font-weight: 600;
-      fill: #34495e;
-      text-anchor: middle;
-    }
-    svg { 
-      background: white; 
-      display: block; 
-      margin: 20px auto; 
-      border-radius: 8px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.12);
-    }
-    .scene-indicator {
-      text-align: center;
-      margin: 10px 0 25px 0;
-      font-weight: 600;
-      color: #4a6fa5;
-    }
-    .annotation-note-title {
+      font-size: 18px;
       font-weight: bold;
-      font-size: 14px;
+      text-anchor: middle;
     }
-    .annotation-note-label {
-      font-size: 13px;
-    }
+    svg { background: #fafafa; display: block; margin: auto; }
   </style>
 </head>
 <body>
@@ -158,6 +86,11 @@
       // Define scenes
       scenes = [sceneScatter, sceneColored, sceneBar];
 
+      // Update scene indicator
+      function updateSceneIndicator() {
+        sceneIndicator.text(`Scene ${currentScene + 1} of ${scenes.length}`);
+      }
+
       // Render function
       function render() {
         // Clear
@@ -175,7 +108,6 @@
         scenes[currentScene]();
         updateSceneIndicator();
       }
-
       // Scene 0: scatter
       function sceneScatter() {
         // Axes
