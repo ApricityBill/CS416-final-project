@@ -7,205 +7,244 @@
   <script src="https://cdn.jsdelivr.net/npm/d3-annotation@2"></script>
   <style>
     body { font-family: sans-serif; margin: 0; }
-    #sceneTitle { text-align: center; margin: 10px; font-size: 24px; font-weight: bold; }
-    #controls { text-align: center; margin-bottom: 10px; }
+    #controls { text-align: center; margin: 10px; }
     button { padding: 5px 10px; margin: 0 5px; }
     .tooltip {
-      position: absolute; background: rgba(255,255,255,0.9);
-      padding: 6px; border: 1px solid #aaa; border-radius: 4px;
-      pointer-events: none; font-size: 12px;
+      position: absolute;
+      background: rgba(255,255,255,0.9);
+      padding: 6px;
+      border: 1px solid #aaa;
+      border-radius: 4px;
+      pointer-events: none;
+      font-size: 12px;
+    }
+    .scene-title {
+      font-size: 18px;
+      font-weight: bold;
+      text-anchor: middle;
     }
     svg { background: #fafafa; display: block; margin: auto; }
   </style>
 </head>
 <body>
-  <!-- Scene title displayed above the visualization -->
-  <div id="sceneTitle"></div>
-  <!-- Navigation controls -->
   <div id="controls">
     <button id="prevBtn">← Previous</button>
     <button id="nextBtn">Next →</button>
   </div>
-  <!-- Visualization SVG container -->
   <div id="viz"></div>
-  <!-- Tooltip -->
   <div id="tooltip" class="tooltip" style="opacity:0;"></div>
-
   <script>
     const width = 800, height = 500;
-    const margin = { top: 40, right: 40, bottom: 50, left: 60 };
+    const margin = { top: 60, right: 40, bottom: 50, left: 60 };
 
-    // Titles for scenes
+    // Scene titles
     const sceneTitles = [
       'Mapping Efficiency: City vs. Highway MPG',
       'Under the Hood: MPG Colored by Cylinder Count',
       'Ranking Engines: Average City MPG by Cylinder Category'
     ];
 
-    // Append SVG to viz div
+    // Create SVG
     const svg = d3.select('#viz').append('svg')
       .attr('width', width)
       .attr('height', height);
 
     const tooltip = d3.select('#tooltip');
+
     let currentScene = 0;
     let scenes = [];
 
-    // Load cleaned CSV
     d3.csv('cars2017_clean.csv', d3.autoType).then(data => {
-      // Unique cylinder counts and color scale
-      const cylinders = Array.from(new Set(data.map(d=>d.EngineCylinders))).sort(d3.ascending);
+      // Color scale for cylinders
+      const cylinders = Array.from(new Set(data.map(d => d.EngineCylinders))).sort(d3.ascending);
       const colorScale = d3.scaleOrdinal()
         .domain(cylinders)
         .range(d3.schemeCategory10);
 
       // Scales for scatter
       const xScale = d3.scaleLinear()
-        .domain(d3.extent(data, d=>d.AverageCityMPG)).nice()
-        .range([margin.left, width-margin.right]);
+        .domain(d3.extent(data, d => d.AverageCityMPG)).nice()
+        .range([margin.left, width - margin.right]);
       const yScale = d3.scaleLinear()
-        .domain(d3.extent(data, d=>d.AverageHighwayMPG)).nice()
-        .range([height-margin.bottom, margin.top]);
+        .domain(d3.extent(data, d => d.AverageHighwayMPG)).nice()
+        .range([height - margin.bottom, margin.top]);
 
-      // Data summary for bar chart
-      const avgByCyl = d3.rollups(data,
-        v=>d3.mean(v, d=>d.AverageCityMPG),
-        d=>d.EngineCylinders
-      ).sort((a,b)=>a[0]-b[0]);
+      // Aggregated data for bar chart
+      const avgByCyl = d3.rollups(
+        data,
+        v => d3.mean(v, d => d.AverageCityMPG),
+        d => d.EngineCylinders
+      ).sort((a, b) => a[0] - b[0]);
       const xBar = d3.scaleBand()
-        .domain(avgByCyl.map(d=>d[0]))
-        .range([margin.left, width-margin.right])
+        .domain(avgByCyl.map(d => d[0]))
+        .range([margin.left, width - margin.right])
         .padding(0.2);
       const yBar = d3.scaleLinear()
-        .domain([0, d3.max(avgByCyl, d=>d[1])]).nice()
-        .range([height-margin.bottom, margin.top]);
+        .domain([0, d3.max(avgByCyl, d => d[1])]).nice()
+        .range([height - margin.bottom, margin.top]);
 
+      // Define scenes
       scenes = [sceneScatter, sceneColored, sceneBar];
 
+      // Render function
       function render() {
-        // Update scene title in HTML
-        d3.select('#sceneTitle').text(sceneTitles[currentScene]);
-        // Clear previous scene
+        // Clear
         svg.selectAll('*').remove();
+
+        // Title inside SVG
+        svg.append('text')
+          .attr('class', 'scene-title')
+          .attr('x', width / 2)
+          .attr('y', margin.top / 2)
+          .attr('text-anchor', 'middle')
+          .text(sceneTitles[currentScene]);
+
         // Draw current scene
         scenes[currentScene]();
       }
 
-      // Scene 0: Scatter of City vs Highway MPG
+      // Scene 0: scatter
       function sceneScatter() {
         // Axes
         svg.append('g')
-          .attr('transform',`translate(0,${height-margin.bottom})`)
+          .attr('transform', `translate(0,${height - margin.bottom})`)
           .call(d3.axisBottom(xScale))
           .append('text')
-            .attr('x', width/2).attr('y', 35)
-            .attr('fill', '#000').text('Average City MPG');
-
+            .attr('x', width / 2)
+            .attr('y', 35)
+            .attr('fill', '#000')
+            .text('Average City MPG');
         svg.append('g')
-          .attr('transform',`translate(${margin.left},0)`)
+          .attr('transform', `translate(${margin.left},0)`)
           .call(d3.axisLeft(yScale))
           .append('text')
-            .attr('transform','rotate(-90)')
-            .attr('x', -height/2).attr('y', -40)
-            .attr('fill', '#000').text('Average Highway MPG');
-
-        // Plot points
-        svg.selectAll('circle').data(data).enter().append('circle')
-          .attr('cx', d=>xScale(d.AverageCityMPG))
-          .attr('cy', d=>yScale(d.AverageHighwayMPG))
-          .attr('r', 5)
-          .attr('fill', 'steelblue')
-          .attr('opacity', 0.7);
-
-        // Annotation: data spread
-        const ann = [{
-          note: { title: 'Dataset Spread', label: 'MPG scatter for 2017 cars.' },
-          x: xScale(d3.mean(data, d=>d.AverageCityMPG)),
-          y: yScale(d3.mean(data, d=>d.AverageHighwayMPG)),
-          dx: -60, dy: -60
-        }];
-        svg.append('g')
-          .call(d3.annotation().annotations(ann));
-      }
-
-      // Scene 1: Color-coded by cylinders
-      function sceneColored() {
-        // Axes
-        svg.append('g')
-          .attr('transform',`translate(0,${height-margin.bottom})`)
-          .call(d3.axisBottom(xScale));
-        svg.append('g')
-          .attr('transform',`translate(${margin.left},0)`)
-          .call(d3.axisLeft(yScale));
-
-        // Colored scatter with tooltips
-        svg.selectAll('circle').data(data).enter().append('circle')
-          .attr('cx', d=>xScale(d.AverageCityMPG))
-          .attr('cy', d=>yScale(d.AverageHighwayMPG))
-          .attr('r', 6)
-          .attr('fill', d=>colorScale(d.EngineCylinders))
-          .on('mouseover', (e, d) => {
-            tooltip.transition().duration(200).style('opacity', 1);
-            tooltip.html(
-              `<strong>Cylinders:</strong> ${d.EngineCylinders}<br>` +
-              `<strong>City MPG:</strong> ${d.AverageCityMPG}<br>` +
-              `<strong>Highway MPG:</strong> ${d.AverageHighwayMPG}`
-            )
-              .style('left', `${e.pageX + 5}px`)
-              .style('top', `${e.pageY - 30}px`);
-          })
-          .on('mouseout', () => tooltip.transition().duration(500).style('opacity', 0));
-
-        // Legend for cylinder colors
-        const legend = svg.selectAll('.leg').data(cylinders).enter().append('g')
-          .attr('class', 'leg')
-          .attr('transform', (d, i) => `translate(${width - margin.right - 100},${margin.top + i*20})`);
-        legend.append('rect').attr('width', 12).attr('height', 12).attr('fill', d=>colorScale(d));
-        legend.append('text').attr('x', 16).attr('y', 10).text(d => d + ' cyl');
-      }
-
-      // Scene 2: Bar chart of avg city MPG by cylinders
-      function sceneBar() {
-        // Axes
-        svg.append('g')
-          .attr('transform',`translate(0,${height-margin.bottom})`)
-          .call(d3.axisBottom(xBar))
-          .append('text')
-            .attr('x', width/2).attr('y', 35)
-            .attr('fill', '#000').text('Engine Cylinders');
-
-        svg.append('g')
-          .attr('transform',`translate(${margin.left},0)`)
-          .call(d3.axisLeft(yBar))
-          .append('text')
             .attr('transform', 'rotate(-90)')
-            .attr('x', -height/2).attr('y', -40)
-            .attr('fill', '#000').text('Average City MPG');
+            .attr('x', -height / 2)
+            .attr('y', -40)
+            .attr('fill', '#000')
+            .text('Average Highway MPG');
 
-        // Draw bars
-        svg.selectAll('rect').data(avgByCyl).enter().append('rect')
-          .attr('x', d=>xBar(d[0]))
-          .attr('y', d=>yBar(d[1]))
-          .attr('width', xBar.bandwidth())
-          .attr('height', d=>height - margin.bottom - yBar(d[1]))
-          .attr('fill', 'steelblue');
+        // Points
+        svg.selectAll('circle')
+          .data(data)
+          .enter().append('circle')
+            .attr('cx', d => xScale(d.AverageCityMPG))
+            .attr('cy', d => yScale(d.AverageHighwayMPG))
+            .attr('r', 5)
+            .attr('fill', 'steelblue')
+            .attr('opacity', 0.7);
 
-        // Annotation: highlight top bar
-        const top = avgByCyl.reduce((a, b) => b[1] > a[1] ? b : a);
+        // Annotation
         const ann = [{
-          note: { title: 'Highest Efficiency', label: `${top[0]}-cyl cars avg ${top[1].toFixed(1)} MPG` },
-          x: xBar(top[0]) + xBar.bandwidth()/2,
-          y: yBar(top[1]),
-          dx: 0, dy: -50
+          note: { title: 'Dataset Spread', label: 'Scatter of city vs. highway MPG.' },
+          x: xScale(d3.mean(data, d => d.AverageCityMPG)),
+          y: yScale(d3.mean(data, d => d.AverageHighwayMPG)),
+          dx: -60, dy: -60
         }];
         svg.append('g').call(d3.annotation().annotations(ann));
       }
 
-      // Navigation handlers
-      d3.select('#nextBtn').on('click', () => { if (currentScene < scenes.length - 1) currentScene++; render(); });
-      d3.select('#prevBtn').on('click', () => { if (currentScene > 0) currentScene--; render(); });
+      // Scene 1: colored scatter
+      function sceneColored() {
+        // Axes
+        svg.append('g')
+          .attr('transform', `translate(0,${height - margin.bottom})`)
+          .call(d3.axisBottom(xScale));
+        svg.append('g')
+          .attr('transform', `translate(${margin.left},0)`)
+          .call(d3.axisLeft(yScale));
 
-      // Initial render
+        // Colored points with tooltip
+        svg.selectAll('circle')
+          .data(data)
+          .enter().append('circle')
+            .attr('cx', d => xScale(d.AverageCityMPG))
+            .attr('cy', d => yScale(d.AverageHighwayMPG))
+            .attr('r', 6)
+            .attr('fill', d => colorScale(d.EngineCylinders))
+            .on('mouseover', (e, d) => {
+              tooltip.transition().duration(200).style('opacity', 1);
+              tooltip.html(
+                `<strong>Cylinders:</strong> ${d.EngineCylinders}<br>` +
+                `<strong>City MPG:</strong> ${d.AverageCityMPG}<br>` +
+                `<strong>Highway MPG:</strong> ${d.AverageHighwayMPG}`
+              )
+                .style('left', `${e.pageX + 5}px`)
+                .style('top', `${e.pageY - 30}px`);
+            })
+            .on('mouseout', () => tooltip.transition().duration(500).style('opacity', 0));
+
+        // Legend
+        const legend = svg.selectAll('.leg')
+          .data(cylinders)
+          .enter().append('g')
+            .attr('class', 'leg')
+            .attr('transform', (d, i) => `translate(${width - margin.right - 100},${margin.top + i*20})`);
+        legend.append('rect')
+          .attr('width', 12)
+          .attr('height', 12)
+          .attr('fill', d => colorScale(d));
+        legend.append('text')
+          .attr('x', 16)
+          .attr('y', 10)
+          .text(d => `${d} cyl`);
+      }
+
+      // Scene 2: bar chart
+      function sceneBar() {
+        // Axes
+        svg.append('g')
+          .attr('transform', `translate(0,${height - margin.bottom})`)
+          .call(d3.axisBottom(xBar))
+          .append('text')
+            .attr('x', width / 2)
+            .attr('y', 35)
+            .attr('fill', '#000')
+            .text('Engine Cylinders');
+        svg.append('g')
+          .attr('transform', `translate(${margin.left},0)`)
+          .call(d3.axisLeft(yBar))
+          .append('text')
+            .attr('transform', 'rotate(-90)')
+            .attr('x', -height / 2)
+            .attr('y', -40)
+            .attr('fill', '#000')
+            .text('Average City MPG');
+
+        // Bars
+        svg.selectAll('rect.bar')
+          .data(avgByCyl)
+          .enter().append('rect')
+            .attr('class', 'bar')
+            .attr('x', d => xBar(d[0]))
+            .attr('y', d => yBar(d[1]))
+            .attr('width', xBar.bandwidth())
+            .attr('height', d => height - margin.bottom - yBar(d[1]))
+            .attr('fill', 'steelblue');
+
+        // Annotation for top cylinder
+        const top = avgByCyl.reduce((a, b) => b[1] > a[1] ? b : a);
+        const ann = [{
+          note: { title: 'Top Performer', label: `${top[0]}-cyl cars avg ${top[1].toFixed(1)} MPG city` },
+          x: xBar(top[0]) + xBar.bandwidth() / 2,
+          y: yBar(top[1]),
+          dx: 0,
+          dy: -50
+        }];
+        svg.append('g').call(d3.annotation().annotations(ann));
+      }
+
+      // Navigation
+      d3.select('#nextBtn').on('click', () => {
+        if (currentScene < scenes.length - 1) currentScene++;
+        render();
+      });
+      d3.select('#prevBtn').on('click', () => {
+        if (currentScene > 0) currentScene--;
+        render();
+      });
+
+      // Initial display
       render();
     });
   </script>
